@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作／休息計時器</title>
+    <style>
+        /* 基礎樣式設定 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow: hidden; /* 防止氣球飄出畫面時出現捲軸 */
+            position: relative;
+        }
+
+        /* 卡片容器 */
+        .card {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 440px;
+            padding: 32px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+            color: #111827;
+        }
+
+        /* 輸入表單區塊 */
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #4b5563;
+        }
+
+        input, select {
+            padding: 10px 12px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+        }
+
+        input:focus, select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* 錯誤訊息提示區 */
+        .error-message {
+            color: #ef4444;
+            font-size: 0.8125rem;
+            margin-bottom: 16px;
+            min-height: 1.25rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        /* 計時器主要顯示面板 */
+        .display-panel {
+            text-align: center;
+            background-color: #f9fafb;
+            padding: 24px 16px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            border: 1px solid #e5e7eb;
+            transition: background-color 0.3s;
+        }
+
+        /* 不同階段的顏色變換 */
+        .display-panel.work-mode {
+            background-color: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .display-panel.rest-mode {
+            background-color: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .work-mode .phase-badge {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .rest-mode .phase-badge {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .timer-display {
+            font-size: 4rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+            color: #111827;
+            line-height: 1;
+            margin: 8px 0;
+        }
+
+        /* 控制按鈕區 */
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        .btn-start {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background-color: #059669;
+        }
+
+        .btn-pause {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .btn-pause:hover {
+            background-color: #d97706;
+        }
+
+        .btn-reset {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background-color: #dc2626;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 氣球容器與樣式 */
+        .balloon-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none; /* 避免擋住點擊 */
+            z-index: 5;
+            overflow: hidden;
+        }
+
+        .balloon {
+            position: absolute;
+            bottom: -150px;
+            width: 110px;
+            height: 130px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: inset -10px -10px 20px rgba(0, 0, 0, 0.15);
+            animation: floatUp 5s ease-in-out forwards;
+        }
+
+        /* 氣球結與繩子 */
+        .balloon::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-bottom: 10px solid inherit;
+        }
+
+        .balloon-string {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            width: 2px;
+            height: 35px;
+            background-color: rgba(150, 150, 150, 0.6);
+            transform: translateX(-50%);
+        }
+
+        .balloon.work-bg {
+            background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
+        }
+
+        .balloon.rest-bg {
+            background: radial-gradient(circle at 30% 30%, #4ade80, #16a34a);
+        }
+
+        /* 飄浮上升動畫 */
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-50vh) rotate(8deg);
+            }
+            100% {
+                transform: translateY(-120vh) rotate(-8deg);
+                opacity: 0.9;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 氣球繪製容器 -->
+    <div id="balloonContainer" class="balloon-container"></div>
+
+    <div class="card">
+        <h1>番茄鐘計時器</h1>
+
+        <!-- 時間設定區塊 -->
+        <div class="input-group">
+            <div class="field">
+                <label for="workInput">工作時間 (分鐘)</label>
+                <input type="number" id="workInput" value="25" min="1" max="180" step="1">
+            </div>
+            <div class="field">
+                <label for="restInput">休息時間 (分鐘)</label>
+                <!-- 修改最大值限制為 60 -->
+                <input type="number" id="restInput" value="5" min="1" max="60" step="1">
+            </div>
+        </div>
+
+        <!-- 階段選擇 -->
+        <div class="field" style="margin-bottom: 12px;">
+            <label for="phaseSelect">目前階段</label>
+            <select id="phaseSelect">
+                <option value="work">工作階段</option>
+                <option value="rest">休息階段</option>
+            </select>
+        </div>
+
+        <!-- 錯誤訊息提示區 -->
+        <div id="errorMessage" class="error-message"></div>
+
+        <!-- 計時器畫面 -->
+        <div id="displayPanel" class="display-panel work-mode">
+            <div id="phaseDisplay" class="phase-badge">工作階段</div>
+            <div id="timerDisplay" class="timer-display">25:00</div>
+        </div>
+
+        <!-- 按鈕控制 -->
+        <div class="button-group">
+            <button id="startBtn" class="btn-start">開始</button>
+            <button id="pauseBtn" class="btn-pause">暫停</button>
+            <button id="resetBtn" class="btn-reset">重設</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 狀態變數 ---
+        let timerInterval = null;  // 計時器定時器物件
+        let remainingSeconds = 0;  // 目前剩餘秒數
+        let isRunning = false;      // 是否正在倒數中
+
+        // --- DOM 元素取得 ---
+        const workInput = document.getElementById('workInput');
+        const restInput = document.getElementById('restInput');
+        const phaseSelect = document.getElementById('phaseSelect');
+        const errorMessage = document.getElementById('errorMessage');
+        const displayPanel = document.getElementById('displayPanel');
+        const phaseDisplay = document.getElementById('phaseDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const balloonContainer = document.getElementById('balloonContainer');
+
+        // --- 數值驗證函式（依據階段套用不同上限） ---
+        function validateInput(value, phase) {
+            const isWork = phase === 'work';
+            const maxMinutes = isWork ? 180 : 60;
+            const phaseName = isWork ? '工作時間' : '休息時間';
+
+            if (value === '' || value === null) {
+                return { valid: false, msg: `請輸入${phaseName}，數值須在 1 到 ${maxMinutes} 分鐘之間` };
+            }
+            const num = Number(value);
+            if (!Number.isInteger(num)) {
+                return { valid: false, msg: `請輸入整數，${phaseName}須在 1 到 ${maxMinutes} 分鐘之間` };
+            }
+            if (num < 1 || num > maxMinutes) {
+                return { valid: false, msg: `${phaseName}範圍必須在 1 到 ${maxMinutes} 分鐘之間` };
+            }
+            return { valid: true, msg: '' };
+        }
+
+        // 取得目前階段輸入框對應的分鐘數
+        function getCurrentPhaseInputMinutes() {
+            return phaseSelect.value === 'work' ? workInput.value : restInput.value;
+        }
+
+        // 格式化秒數為 MM:SS
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        // 更新畫面上的時間與階段樣式
+        function updateDisplay() {
+            const displaySec = Math.max(0, remainingSeconds);
+            timerDisplay.textContent = formatTime(displaySec);
+
+            if (phaseSelect.value === 'work') {
+                phaseDisplay.textContent = '工作階段';
+                displayPanel.className = 'display-panel work-mode';
+            } else {
+                phaseDisplay.textContent = '休息階段';
+                displayPanel.className = 'display-panel rest-mode';
+            }
+        }
+
+        // 檢查並套用輸入變更
+        function syncTimeToInput() {
+            const currentPhase = phaseSelect.value;
+            const val = getCurrentPhaseInputMinutes();
+            const validation = validateInput(val, currentPhase);
+
+            if (!validation.valid) {
+                errorMessage.textContent = validation.msg;
+                return false;
+            }
+
+            errorMessage.textContent = '';
+            remainingSeconds = parseInt(val, 10) * 60;
+            updateDisplay();
+            return true;
+        }
+
+        // --- 氣球產生函式 ---
+        function spawnBalloons(type) {
+            // 清除之前的氣球
+            balloonContainer.innerHTML = '';
+
+            const isWork = type === 'work';
+            const text = isWork ? '該放鬆了' : '該加油了';
+            const balloonClass = isWork ? 'work-bg' : 'rest-bg';
+
+            // 產生 5 個散落飄升的氣球
+            for (let i = 0; i < 5; i++) {
+                const balloon = document.createElement('div');
+                balloon.className = `balloon ${balloonClass}`;
+                balloon.textContent = text;
+
+                // 增加氣球繩子
+                const string = document.createElement('div');
+                string.className = 'balloon-string';
+                balloon.appendChild(string);
+
+                // 隨機發射位置與動畫時間差
+                const randomLeft = Math.random() * 75 + 10; // 10% ~ 85%
+                const delay = Math.random() * 1.5; // 0 ~ 1.5秒時間差
+                const duration = 4.5 + Math.random() * 1.5; // 4.5 ~ 6秒長度
+
+                balloon.style.left = `${randomLeft}%`;
+                balloon.style.animationDelay = `${delay}s`;
+                balloon.style.animationDuration = `${duration}s`;
+
+                balloonContainer.appendChild(balloon);
+            }
+
+            // 動畫結束後清理 DOM
+            setTimeout(() => {
+                balloonContainer.innerHTML = '';
+            }, 7500);
+        }
+
+        // --- 核心邏輯函式 ---
+
+        // 1. 開始倒數
+        function startTimer() {
+            if (isRunning) return;
+
+            const currentPhase = phaseSelect.value;
+            if (timerInterval === null && remainingSeconds === 0) {
+                if (!syncTimeToInput()) return;
+            } else {
+                const validation = validateInput(getCurrentPhaseInputMinutes(), currentPhase);
+                if (!validation.valid) {
+                    errorMessage.textContent = validation.msg;
+                    return;
+                }
+            }
+
+            if (remainingSeconds <= 0) return;
+
+            // 開始前清除先前的氣球
+            balloonContainer.innerHTML = '';
+
+            isRunning = true;
+            timerInterval = setInterval(() => {
+                remainingSeconds--;
+                updateDisplay();
+
+                // 時間到達 0
+                if (remainingSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    isRunning = false;
+                    remainingSeconds = 0;
+                    updateDisplay();
+
+                    // 觸發氣球浮現動畫
+                    spawnBalloons(phaseSelect.value);
+                }
+            }, 1000);
+        }
+
+        // 2. 暫停倒數
+        function pauseTimer() {
+            if (timerInterval !== null) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            isRunning = false;
+        }
+
+        // 3. 重設倒數
+        function resetTimer() {
+            pauseTimer();
+            balloonContainer.innerHTML = '';
+            syncTimeToInput();
+        }
+
+        // --- 事件監聽 ---
+
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        phaseSelect.addEventListener('change', () => {
+            resetTimer();
+        });
+
+        function handleInputChange() {
+            const currentPhase = phaseSelect.value;
+            if (!isRunning) {
+                syncTimeToInput();
+            } else {
+                const validation = validateInput(getCurrentPhaseInputMinutes(), currentPhase);
+                errorMessage.textContent = validation.valid ? '' : validation.msg;
+            }
+        }
+
+        workInput.addEventListener('input', handleInputChange);
+        restInput.addEventListener('input', handleInputChange);
+
+        // 初始載入設定
+        syncTimeToInput();
+    </script>
+</body>
+</html>
